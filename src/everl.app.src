@@ -1,0 +1,3 @@
+{application, everl,
+    [{description, "libev socket notification"},
+    {vsn, "0.03"}]}.
