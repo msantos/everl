@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011, Michael Santos <michael.santos@gmail.com>
+ * Copyright (c) 2011-2012, Michael Santos <michael.santos@gmail.com>
  * All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
@@ -30,27 +30,4 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <err.h>
-#include <sys/param.h>
-
-#include <unistd.h>
-#include <sys/types.h>
-#include <netdb.h>
-
-#include <netinet/in.h>
-#include <sys/un.h>
-#include <sys/socket.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-
 #include <sys/errno.h>
-
-#include <sys/ioctl.h>
-
-#include <sys/stat.h>
-#include <ctype.h>
