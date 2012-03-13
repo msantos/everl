@@ -1,4 +1,4 @@
-%% Copyright (c) 2011, Michael Santos <michael.santos@gmail.com>
+%% Copyright (c) 2011-2012, Michael Santos <michael.santos@gmail.com>
 %% All rights reserved.
 %% 
 %% Redistribution and use in source and binary forms, with or without
@@ -80,9 +80,17 @@ flag(Flags) when is_list(Flags) ->
     lists:foldl(fun(X,F) -> X bor F end, 0, Flags).
 
 progname() ->
-    filename:join([
-        filename:dirname(code:which(?MODULE)),
-        "..",
-        "priv",
-        ?MODULE
-    ]).
+    case code:priv_dir(?MODULE) of
+        {error,bad_name} ->
+            filename:join([
+                filename:dirname(code:which(?MODULE)),
+                "..",
+                "priv",
+                ?MODULE
+            ]);
+        _ ->
+            filename:join([
+                code:priv_dir(?MODULE),
+                ?MODULE
+            ])
+    end.
