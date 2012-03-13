@@ -63,6 +63,11 @@ libev was written by Marc Alexander Lehmann and is available from:
 ## USING IT
 
 
+## TESTING
+
+    make test
+
+
 ## TODO
 
 * Documentation and examples

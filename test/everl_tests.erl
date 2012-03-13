@@ -37,7 +37,7 @@
 
 -define(EV_RDWR, ?EV_READ bor ?EV_WRITE).
 
--define(NUM_CLIENTS, 50).
+-define(NUM_CLIENTS, 100).
 -define(NUM_REQ, 200).
 
 
@@ -50,7 +50,7 @@ start(N) ->
     Port = crypto:rand_uniform(1024, 16#FFFF),
 
     Self = self(),
-    spawn(fun() -> server(Port, Self) end),
+    spawn_link(fun() -> server(Port, Self) end),
 
     receive ok -> ok end,
 
@@ -68,7 +68,7 @@ wait(N) ->
         Err ->
             Err
     after
-        10000 ->
+        1000 ->
             {failed, N}
     end.
 
@@ -104,26 +104,37 @@ client_2(Socket, Data, N, Pid) ->
 
 
 server(Port, Pid) ->
-    {ok, Socket} = procket:open(Port, [
-            {protocol, tcp},
-            {type, stream},
-            {family, inet}
+    {ok, Socket} =  gen_tcp:listen(Port, [
+            binary,
+            {packet, 0},
+            {active, false},
+            {backlog, 128}
         ]),
-    ok = procket:listen(Socket),
-    io:format("listening on ~p~n", [Port]),
-    {ok, Watcher} = everl:create(Socket, ?EV_READ),
+
+    {ok, FD} = inet:getfd(Socket),
+
+    error_logger:info_report([
+            {server, listening},
+            {port, Port}
+        ]),
+
+    {ok, Watcher} = everl:create(FD, ?EV_READ),
     Pid ! ok,
     listen(Socket, Watcher).
 
 listen(Socket, Watcher) ->
+    {ok, FD} = inet:getfd(Socket),
     ok = everl:arm(Watcher),
     receive
-        {everl_watcher, Socket, ?EV_READ} ->
-            {ok, Socket1, <<Family:16/native, Port:16,
-                IP1,IP2,IP3,IP4, _/binary>>} = procket:accept(Socket, 16),
+        {everl_watcher, FD, ?EV_READ} ->
+            {ok, Socket1} = gen_tcp:accept(Socket),
+            {ok, {Address, Port}} = inet:peername(Socket1),
 
-            io:format("Connect from op=~p, family=~p, ip=~p, port=~p~n",
-                [?EV_READ, Family, {IP1,IP2,IP3,IP4}, Port]),
+            error_logger:info_report([
+                    {server, connect},
+                    {address, inet_parse:ntoa(Address)},
+                    {port, Port}
+                ]),
 
             spawn(fun() -> accept(Socket1) end),
             listen(Socket, Watcher);
@@ -133,42 +144,38 @@ listen(Socket, Watcher) ->
     end.
 
 accept(Socket) ->
-    {ok, Watcher} = everl:create(Socket, ?EV_RDWR),
+    {ok, FD} = inet:getfd(Socket),
+    {ok, Watcher} = everl:create(FD, ?EV_RDWR),
     accept(Socket, Watcher, <<>>).
 accept(Socket, Watcher, Buf) ->
+    {ok, FD} = inet:getfd(Socket),
     ok = everl:arm(Watcher),
     receive
-        {everl_watcher, Socket, ?EV_RDWR} ->
-            Res = procket:read(Socket, 1024),
+        {everl_watcher, FD, ?EV_RDWR} ->
+            Res = gen_tcp:recv(Socket, 0),
             case Res of
-                {ok, <<>>} ->
-                    procket:close(Socket);
                 {ok, Buf1} ->
-                    Data = list_to_binary([Buf, Buf1]),
-                    ok = procket:write(Socket, Data),
+                    ok = gen_tcp:send(Socket, list_to_binary([Buf, Buf1])),
                     accept(Socket, Watcher, <<>>);
-                {error, eagain} ->
-                    accept(Socket, Watcher, <<>>)
+                {error, closed} ->
+                    ok
             end;
 
-        {everl_watcher, Socket, ?EV_WRITE} ->
+        {everl_watcher, FD, ?EV_WRITE} ->
             case Buf of
                 <<>> -> ok;
                 _ ->
-                    procket:write(Socket, Buf)
+                    gen_tcp:send(Socket, Buf)
             end,
             accept(Socket, Watcher, <<>>);
 
-        {everl_watcher, Socket, ?EV_READ} ->
-            Res = procket:read(Socket, 1024),
+        {everl_watcher, FD, ?EV_READ} ->
+            Res = gen_tcp:recv(Socket, 0),
             case Res of
-                {ok, <<>>} ->
-                    procket:close(Socket);
                 {ok, Buf1} ->
-                    Data = list_to_binary([Buf, Buf1]),
-                    accept(Socket, Watcher, Data);
-                {error, eagain} ->
-                    accept(Socket, Watcher, Buf)
+                    accept(Socket, Watcher, list_to_binary([Buf, Buf1]));
+                {error, closed} ->
+                    ok
             end;
 
         Error ->
