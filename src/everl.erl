@@ -88,9 +88,6 @@ progname() ->
                 "priv",
                 ?MODULE
             ]);
-        _ ->
-            filename:join([
-                code:priv_dir(?MODULE),
-                ?MODULE
-            ])
+        Dir ->
+            filename:join([Dir, ?MODULE])
     end.
